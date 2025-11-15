@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>衛星トラッカー</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="satellite.min.js" defer></script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <div id="popup-overlay" class="popup-overlay" hidden>
+      <div class="popup-overlay__content">
+        <p>別ウインドウを閉じると操作を再開できます。</p>
+      </div>
+    </div>
+    <main class="app">
+      <section class="panel">
+        <h2>
+          <span class="app-icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64" role="img" focusable="false">
+              <path
+                d="M26 26h12v12H26zM12 12l8-4 8 8-4 8zM44 52l8-4-8-8-8 4zM8 36h12v12H8zM44 16h12v12H44zM20 20l24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="4"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          衛星トラッカー
+        </h2>
+        <p class="intro">
+          観測地点と衛星のTLEを入力して、衛星の方位角と仰角を求めます。
+        </p>
+        <div class="location-presets-buttons">
+          <button
+            type="button"
+            class="location-preset-btn"
+            data-location-preset
+            data-lat="30.4017"
+            data-lon="130.9734"
+            data-alt="210"
+          >
+            種子島
+          </button>
+          <button
+            type="button"
+            class="location-preset-btn"
+            data-location-preset
+            data-lat="31.2518"
+            data-lon="131.0815"
+            data-alt="330"
+          >
+            内之浦
+          </button>
+            <button
+              type="button"
+              class="location-preset-btn"
+              data-location-preset
+              data-lat="27.0894"
+              data-lon="142.1918"
+              data-alt="240"
+            >
+              小笠原
+            </button>
+            <button
+              type="button"
+              class="location-preset-btn"
+              data-location-preset
+              data-lat="38.9956"
+              data-lon="-76.8483"
+              data-alt="46"
+            >
+              ゴダード
+            </button>
+          </div>
+        <form id="tracker-form">
+          <label>
+            <span class="field-label">
+              観測地点（緯度 °）
+              <span class="error-text" id="lat-error" aria-live="polite"></span>
+            </span>
+            <input
+              type="number"
+              step="any"
+              id="lat"
+              placeholder="例: 30.4017"
+              required
+            />
+          </label>
+          <label>
+            <span class="field-label">
+              観測地点（経度 °）
+              <span class="error-text" id="lon-error" aria-live="polite"></span>
+            </span>
+            <input
+              type="number"
+              step="any"
+              id="lon"
+              placeholder="例: 130.9734"
+              required
+            />
+          </label>
+          <label>
+            <span class="field-label">
+              観測地点（高度 m）
+              <span class="error-text" id="alt-error" aria-live="polite"></span>
+            </span>
+            <input
+              type="number"
+              step="1"
+              id="alt"
+              placeholder="例: 210"
+              required
+            />
+          </label>
+          <label>
+            <span class="field-label">
+              TLE（衛星名 + 2 行まとめて貼り付け）
+              <span class="error-text" id="tle-error" aria-live="polite"></span>
+            </span>
+            <textarea id="tle-block" rows="4" required placeholder="例：&#10;ISS (ZARYA)&#10;1 25544U ...&#10;2 25544 ..."></textarea>
+            <div class="tle-actions">
+              <button type="button" id="tle-search-btn">TLE 検索</button>
+            </div>
+          </label>
+          <div class="actions">
+            <button type="button" id="start-btn" class="button-dark">トラッキング開始</button>
+            <button type="button" id="stop-btn" class="button-teal">停止</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>追跡情報</h2>
+          <button type="button" id="satellite-data-btn" class="button-dark button-small">軌道要素</button>
+        </div>
+        <dl class="stats">
+          <div>
+            <dt>方位角 (°)</dt>
+            <dd id="azimuth">--</dd>
+          </div>
+          <div>
+            <dt>仰角 (°)</dt>
+            <dd id="elevation">--</dd>
+          </div>
+          <div>
+            <dt>距離 (km)</dt>
+            <dd id="range">--</dd>
+          </div>
+          <div class="stat-full">
+            <dt>最終更新</dt>
+            <dd id="timestamp">--</dd>
+          </div>
+        </dl>
+        <div class="current-pass" id="current-pass" hidden>
+          <h3>現在パス情報</h3>
+          <p>
+            <strong>AOS:</strong>
+            <span id="current-pass-aos">--</span>
+          </p>
+          <p>
+            <strong>LOS:</strong>
+            <span id="current-pass-los">--</span>
+          </p>
+          <p>
+            <span id="current-pass-peak">--</span>
+          </p>
+        </div>
+        <div class="next-pass" id="next-pass" hidden>
+          <h3>次の可視開始予測</h3>
+          <p>
+            <strong>AOS:</strong>
+            <span id="next-pass-aos">--</span>
+          </p>
+          <p>
+            <strong>LOS:</strong>
+            <span id="next-pass-los">--</span>
+          </p>
+          <p>
+            <span id="next-pass-peak">--</span>
+          </p>
+          <p class="next-pass-note">
+            （AOS/LOS の時刻と方位角、ピーク仰角を表示します）
+          </p>
+        </div>
+        <div class="polar-chart">
+          <h3>方位角 / 仰角</h3>
+          <canvas id="polar-canvas" width="320" height="320" aria-label="衛星の方位角と仰角表示"></canvas>
+          <div class="polar-legend" aria-label="ポーラーチャート凡例">
+            <span class="polar-legend-item">
+              <span class="polar-legend-dot polar-legend-dot--sat"></span>
+              衛星位置
+            </span>
+            <span class="polar-legend-item">
+              <span class="polar-legend-dot polar-legend-dot--track"></span>
+              衛星軌跡
+            </span>
+            <span class="polar-legend-item">
+              <span class="polar-legend-dot polar-legend-dot--sun"></span>
+              太陽位置
+            </span>
+          </div>
+        </div>
+      </section>
+      <section class="panel pass-summary full-width" id="upcoming-passes" hidden>
+        <div class="pass-summary-header">
+          <h3>今後１週間の可視パス</h3>
+          <button type="button" id="export-csv-btn" class="button-dark button-small">CSV 取得</button>
+        </div>
+        <ul id="pass-list"></ul>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <p>© 2025 SatOrbTrk(S.Kushihama)</p>
+    </footer>
+  </body>
+</html>
