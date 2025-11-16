@@ -19,9 +19,10 @@ body.popup-overlay-active {
 
 .app {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 1.5rem;
   padding: 2rem;
+  width: min(1100px, 100%);
   max-width: 1100px;
   margin: auto;
   flex: 1;
@@ -29,6 +30,11 @@ body.popup-overlay-active {
 
 .pass-summary.full-width {
   grid-column: 1 / -1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  justify-self: stretch;
 }
 
 @media (min-width: 960px) {
@@ -232,8 +238,8 @@ dd {
 }
 
 .location-presets-buttons {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 0.75rem;
   margin-bottom: 15px;
 }
@@ -242,9 +248,9 @@ dd {
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.35);
   color: #f5f5f5;
-  padding: 0.6rem 1.1rem;
+  padding: 0.65rem 1.25rem;
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   letter-spacing: 0.05em;
 }
 
@@ -305,6 +311,7 @@ dd {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
 }
 
 .pass-item {
@@ -317,6 +324,7 @@ dd {
   flex-direction: column;
   gap: 0.65rem;
   backdrop-filter: blur(6px);
+  min-width: 0;
 }
 
 .pass-item-header {
@@ -336,7 +344,7 @@ dd {
   border-radius: 999px;
   background: rgba(12, 18, 28, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  font-size: 0.85rem;
+  font-size: clamp(0.78rem, 2vw, 0.85rem);
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -453,11 +461,121 @@ dd {
 
 @media (max-width: 600px) {
   .app {
-    padding: 1rem;
+    padding: 0.85rem;
+    gap: 1rem;
+  }
+
+  .panel {
+    padding: 1.1rem;
+    border-radius: 14px;
+  }
+
+  h1 {
+    font-size: 1.55rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .app-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .stats div {
+    padding: 0.85rem;
   }
 
   dd {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
+  }
+
+  .location-presets {
+    padding: 0.85rem;
+    border-radius: 12px;
+  }
+
+  .location-presets-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .location-preset-btn {
+    font-size: 1rem;
+    width: 100%;
+    text-align: center;
+    padding: 0.75rem 1.1rem;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions button,
+  .tle-actions button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .pass-summary-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pass-pill-group {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .pass-item {
+    overflow: hidden;
+  }
+
+  .pass-pill {
+    font-size: 0.78rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  #polar-canvas {
+    max-width: 100%;
+  }
+
+  .polar-legend {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .polar-legend-item {
+    flex: 1 1 140px;
+  }
+}
+
+@media (max-width: 400px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .pass-pill-group {
+    grid-template-columns: 1fr;
+  }
+
+  .location-presets-buttons,
+  .actions {
+    gap: 0.6rem;
+  }
+
+  .polar-legend-item {
+    flex: 1 1 100%;
   }
 }
 .panel-header {
