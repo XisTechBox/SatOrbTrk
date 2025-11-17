@@ -11,6 +11,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 body.popup-overlay-active {
@@ -26,6 +27,7 @@ body.popup-overlay-active {
   max-width: 1100px;
   margin: auto;
   flex: 1;
+  box-sizing: border-box;
 }
 
 .pass-summary.full-width {
@@ -623,4 +625,186 @@ dd {
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.9);
   box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+}
+
+.modal-root:not([hidden]) {
+  display: block;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(2px);
+}
+
+.modal-window {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 640px);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: rgba(10, 10, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+  padding: 1.25rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+}
+
+#modal-close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.modal-content {
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.modal-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #1de9b6;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.modal-tle-search input {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  margin-bottom: 0.8rem;
+}
+
+.modal-tle-list {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.modal-tle-list li {
+  list-style: none;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.modal-tle-list li:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.modal-tle-name {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.modal-tle-lines {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  word-break: break-all;
+}
+
+.modal-pass-polar canvas {
+  width: 100%;
+  max-width: 360px;
+  display: block;
+  margin: 0 auto;
+}
+
+.modal-pass-legend {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.modal-pass-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.modal-pass-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.modal-pass-legend-dot--sat {
+  background: rgba(200, 200, 200, 0.9);
+}
+
+.modal-pass-legend-dot--sun {
+  background: rgba(255, 99, 132, 0.75);
+}
+.modal-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.modal-table th,
+.modal-table td {
+  padding: 0.6rem 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.modal-table th {
+  width: 40%;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
 }

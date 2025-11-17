@@ -11,7 +11,17 @@
   <body>
     <div id="popup-overlay" class="popup-overlay" hidden>
       <div class="popup-overlay__content">
-        <p>別ウインドウを閉じると操作を再開できます。</p>
+        <p>別ウィンドウは使用せず、画面内でポップアップを表示します。</p>
+      </div>
+    </div>
+    <div id="modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal-window" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h3 id="modal-title">モーダル</h3>
+          <button type="button" id="modal-close-btn" aria-label="閉じる">✕</button>
+        </div>
+        <div class="modal-content" id="modal-content"></div>
       </div>
     </div>
     <main class="app">

@@ -34,15 +34,14 @@ let currentPassInfo = null;
 let currentPassTrackPoints = [];
 let nextPassTrackPoints = [];
 let isTracking = false;
-let tleSearchWindow = null;
 let cachedUpcomingPasses = [];
 let lastSatelliteData = null;
-let satelliteDataWindow = null;
 let pendingTleName = null;
-let passPolarWindow = null;
-let popupOverlayMonitorId = null;
-const activePopupWindows = new Set();
 let latestSunPoint = null;
+const modalRoot = document.getElementById('modal-root');
+const modalTitleEl = document.getElementById('modal-title');
+const modalContentEl = document.getElementById('modal-content');
+const modalCloseBtn = document.getElementById('modal-close-btn');
 
 const MAX_PASS_DURATION_SECONDS = 2 * 3600;
 const PASS_SCAN_STEP_SECONDS = 30;
@@ -68,6 +67,40 @@ const formatTimestamp = (date) => {
   const pad = (num, len = 2) => String(num).padStart(len, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
+function openModal({ title = '', content = '' } = {}) {
+  if (!modalRoot || !modalContentEl || !modalTitleEl) return;
+  modalTitleEl.textContent = title;
+  if (typeof content === 'string') {
+    modalContentEl.innerHTML = content;
+  } else {
+    modalContentEl.innerHTML = '';
+    modalContentEl.appendChild(content);
+  }
+  modalRoot.hidden = false;
+  document.body?.classList.add('popup-overlay-active');
+}
+
+function closeModal() {
+  if (!modalRoot) return;
+  modalRoot.hidden = true;
+  document.body?.classList.remove('popup-overlay-active');
+}
+
+if (modalCloseBtn) {
+  modalCloseBtn.addEventListener('click', closeModal);
+}
+if (modalRoot) {
+  modalRoot.addEventListener('click', (event) => {
+    if (event.target.classList.contains('modal-backdrop')) {
+      closeModal();
+    }
+  });
+}
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !modalRoot?.hidden) {
+    closeModal();
+  }
+});
 
 function applyLocationPreset(lat, lon, alt, label = '観測地点') {
   if (!latInput || !lonInput || !altInput) return;
@@ -249,63 +282,6 @@ function setSatelliteDataEnabled(isEnabled) {
   satelliteDataBtn.classList.toggle('disabled', !isEnabled);
 }
 
-function showPopupOverlay() {
-  if (!popupOverlay) return;
-  popupOverlay.hidden = false;
-  if (document.body) {
-    document.body.classList.add('popup-overlay-active');
-  }
-}
-
-function hidePopupOverlay() {
-  if (!popupOverlay) return;
-  popupOverlay.hidden = true;
-  if (document.body) {
-    document.body.classList.remove('popup-overlay-active');
-  }
-}
-
-function registerPopupWindow(winRef) {
-  if (!winRef) return;
-  activePopupWindows.add(winRef);
-  showPopupOverlay();
-  if (!popupOverlayMonitorId) {
-    popupOverlayMonitorId = setInterval(() => {
-      for (const popup of Array.from(activePopupWindows)) {
-        if (!popup || popup.closed) {
-          activePopupWindows.delete(popup);
-        }
-      }
-      if (!activePopupWindows.size) {
-        hidePopupOverlay();
-        clearInterval(popupOverlayMonitorId);
-        popupOverlayMonitorId = null;
-      }
-    }, POPUP_OVERLAY_CHECK_INTERVAL);
-  }
-}
-
-function unregisterPopupWindow(winRef) {
-  if (!winRef) return;
-  activePopupWindows.delete(winRef);
-  if (!activePopupWindows.size) {
-    hidePopupOverlay();
-    if (popupOverlayMonitorId) {
-      clearInterval(popupOverlayMonitorId);
-      popupOverlayMonitorId = null;
-    }
-  }
-}
-
-function getWindowDocument(winRef) {
-  if (!winRef || winRef.closed) return null;
-  try {
-    return winRef.document;
-  } catch (error) {
-    return null;
-  }
-}
-
 function clearUpcomingPasses() {
   if (!upcomingContainer || !passListEl) return;
   upcomingContainer.hidden = true;
@@ -346,107 +322,34 @@ function escapeHtml(str = '') {
 }
 
 function showTleSearchLoading() {
-  const doc = getWindowDocument(tleSearchWindow);
-  if (!doc) return;
-  doc.open();
-  doc.write(`<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>TLE 検索</title>
-    <style>
-      body { font-family: 'Segoe UI', system-ui; margin: 0; background: #05070c; color: #f6f6f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-      .loading { text-align: center; opacity: 0.85; letter-spacing: 0.05em; }
-      .spinner {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        border: 4px solid rgba(255, 255, 255, 0.1);
-        border-top-color: #1de9b6;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 1rem auto;
-      }
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="loading">
-      <div class="spinner"></div>
-      <div>TLE を取得しています...</div>
-    </div>
-  </body>
-</html>`);
-  doc.close();
+  const loading = document.createElement('div');
+  loading.className = 'modal-loading';
+  loading.innerHTML = '<div class=\"modal-spinner\"></div><div>TLE を取得しています...</div>';
+  openModal({ title: 'TLE 検索', content: loading });
 }
 
 function showTleSearchError(message) {
-  const doc = getWindowDocument(tleSearchWindow);
-  if (!doc) return;
-  doc.open();
-  doc.write(`<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>TLE エラー</title>
-    <style>
-      body { font-family: 'Segoe UI', system-ui; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #05070c; color: #f6f6f6; }
-      .error { text-align: center; line-height: 1.6; max-width: 80%; }
-    </style>
-  </head>
-  <body>
-    <div class="error" id="tle-error-msg"></div>
-  </body>
-</html>`);
-  doc.close();
-  const msgEl = doc.getElementById('tle-error-msg');
-  if (msgEl) {
-    msgEl.textContent = `TLE の取得に失敗しました: ${message}`;
-  }
+  const errorEl = document.createElement('div');
+  errorEl.textContent = `TLE の取得に失敗しました: ${message}`;
+  openModal({ title: 'TLE 検索エラー', content: errorEl });
 }
 
 function renderTleSearchWindow(entries) {
-  const doc = getWindowDocument(tleSearchWindow);
-  if (!doc) return;
-  doc.open();
-  doc.write(`<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>TLE 検索</title>
-    <style>
-      body { font-family: 'Segoe UI', system-ui; margin: 0; background: #05070c; color: #f6f6f6; }
-      header { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.08); position: sticky; top: 0; background: #05070c; z-index: 1; }
-      input { width: 100%; padding: 0.6rem 0.8rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: inherit; }
-      main { padding: 1rem 1.25rem; max-height: calc(100vh - 80px); overflow-y: auto; }
-      ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
-      li { padding: 0.9rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); cursor: pointer; transition: border 0.2s ease; }
-      li:hover { border-color: rgba(0,255,204,0.4); }
-      .name { font-weight: 600; margin-bottom: 0.35rem; }
-      .lines { font-family: 'Roboto Mono', monospace; font-size: 0.8rem; color: rgba(255,255,255,0.75); }
-      .empty { opacity: 0.7; text-align: center; padding: 1rem; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <input type="search" id="tle-search-input" placeholder="衛星名で検索 (例: ISS)" />
-    </header>
-    <main>
-      <ul id="tle-result-list"></ul>
-      <div class="empty" id="tle-empty" hidden>該当する衛星が見つかりません</div>
-    </main>
-  </body>
-</html>`);
-  doc.close();
-
-  const listEl = doc.getElementById('tle-result-list');
-  const emptyEl = doc.getElementById('tle-empty');
-  const inputEl = doc.getElementById('tle-search-input');
+  const container = document.createElement('div');
+  container.className = 'modal-tle-search';
+  const inputEl = document.createElement('input');
+  inputEl.type = 'search';
+  inputEl.placeholder = '衛星名で検索 (例: ISS)';
+  const listEl = document.createElement('ul');
+  listEl.className = 'modal-tle-list';
+  const emptyEl = document.createElement('div');
+  emptyEl.textContent = '該当する衛星が見つかりません';
+  emptyEl.hidden = true;
+  container.append(inputEl, listEl, emptyEl);
+  openModal({ title: 'TLE 検索', content: container });
 
   const renderList = (keyword = '') => {
-    if (!listEl || !emptyEl) return;
+    if (!listEl) return;
     const word = keyword.trim().toLowerCase();
     const filtered = word
       ? entries.filter((entry) => entry.name.toLowerCase().includes(word))
@@ -454,32 +357,27 @@ function renderTleSearchWindow(entries) {
     listEl.innerHTML = filtered
       .map(
         (entry) => `<li data-entry-index="${entry.index}">
-          <div class="name">${escapeHtml(entry.name)}</div>
-          <div class="lines">${escapeHtml(entry.line1)}<br/>${escapeHtml(entry.line2)}</div>
+          <div class="modal-tle-name">${escapeHtml(entry.name)}</div>
+          <div class="modal-tle-lines">${escapeHtml(entry.line1)}<br/>${escapeHtml(entry.line2)}</div>
         </li>`,
       )
       .join('');
     emptyEl.hidden = filtered.length > 0;
   };
 
-  if (listEl) {
-    listEl.addEventListener('click', (event) => {
-      const target = event.target.closest('li');
-      if (!target) return;
-      const idx = Number(target.dataset.entryIndex);
-      const entry = entries[idx];
-      if (entry && window.setTleFromSearch) {
-        window.setTleFromSearch(entry);
-      }
-    });
-  }
+  listEl.addEventListener('click', (event) => {
+    const target = event.target.closest('li');
+    if (!target) return;
+    const idx = Number(target.dataset.entryIndex);
+    const entry = entries[idx];
+    if (entry && window.setTleFromSearch) {
+      window.setTleFromSearch(entry);
+    }
+  });
 
-  if (inputEl) {
-    inputEl.addEventListener('input', () => renderList(inputEl.value));
-  }
-
+  inputEl.addEventListener('input', () => renderList(inputEl.value));
   renderList();
-  if (inputEl) inputEl.focus();
+  inputEl.focus();
 }
 
 function setTleFromSearch(entry) {
@@ -488,29 +386,11 @@ function setTleFromSearch(entry) {
   tleInput.value = `${tleName}\n${entry.line1}\n${entry.line2}`;
   pendingTleName = entry.name || '検索結果';
   tleInput.focus();
-  if (tleSearchWindow && !tleSearchWindow.closed) {
-    tleSearchWindow.close();
-    unregisterPopupWindow(tleSearchWindow);
-  }
-  tleSearchWindow = null;
+  closeModal();
 }
 window.setTleFromSearch = setTleFromSearch;
 
 async function openTleSearchWindow() {
-  let doc = getWindowDocument(tleSearchWindow);
-  if (!doc) {
-    tleSearchWindow = window.open('', 'tleSearch', 'width=640,height=760');
-    doc = getWindowDocument(tleSearchWindow);
-    if (!doc) {
-      alert('ポップアップがブロックされています。許可してください。');
-      return;
-    }
-    registerPopupWindow(tleSearchWindow);
-  } else {
-    registerPopupWindow(tleSearchWindow);
-    tleSearchWindow.focus();
-  }
-
   showTleSearchLoading();
 
   try {
@@ -1170,151 +1050,108 @@ function openPassPolarWindow(index) {
     return;
   }
 
-  const canvasWidth = 315;
-  const windowWidth = 315;
-  const windowHeight = 360;
-  passPolarWindow = window.open('', 'passPolar', `width=${windowWidth},height=${windowHeight}`);
-  if (!passPolarWindow) {
-    alert('ポップアップがブロックされています。許可してください。');
-    return;
-  }
-
-  const doc = getWindowDocument(passPolarWindow);
-  if (!doc) {
-    alert('別ウィンドウを開けませんでした。');
-    return;
-  }
-  registerPopupWindow(passPolarWindow);
   const sunTrackPoints = buildSunTrackForPoints(pass.trackPoints);
-  doc.open();
-  doc.write(`<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>可視パス (PASS ${index + 1})</title>
-    <style>
-      body { font-family: 'Segoe UI', system-ui; margin: 0; background: #03060d; color: #f5f5f5; padding: 1.2rem; }
-      h2 { margin: 0 0 1rem; font-size: 1rem; letter-spacing: 0.05em; }
-      canvas { width: ${canvasWidth}px; height: ${canvasWidth}px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
-    </style>
-  </head>
-  <body>
-    <h2>PASS ${index + 1}</h2>
-    <canvas id="polarCanvas" width="${canvasWidth}" height="${canvasWidth}"></canvas>
-    <script>
-      const trackPoints = ${JSON.stringify(pass.trackPoints)};
-      const sunTrackPoints = ${JSON.stringify(sunTrackPoints)};
-      const canvas = document.getElementById('polarCanvas');
-      const ctx = canvas.getContext('2d');
-      const size = canvas.width;
-      const center = size / 2;
-      const maxRadius = center - 16;
+  const container = document.createElement('div');
+  container.className = 'modal-pass-polar';
+  const canvas = document.createElement('canvas');
+  const canvasSize = 315;
+  canvas.width = canvasSize;
+  canvas.height = canvasSize;
+  container.appendChild(canvas);
+  const legend = document.createElement('div');
+  legend.className = 'modal-pass-legend';
+  legend.innerHTML = `
+    <span><span class="modal-pass-legend-dot modal-pass-legend-dot--sat"></span>衛星軌跡</span>
+    <span><span class="modal-pass-legend-dot modal-pass-legend-dot--sun"></span>太陽位置</span>`;
+  container.appendChild(legend);
+  openModal({ title: `可視パス (PASS ${index + 1})`, content: container });
 
-      function deg2rad(deg) { return (deg * Math.PI) / 180; }
-      function toPoint(point) {
-        const normalizedRadius = 1 - Math.min(Math.max(point.elevationDeg, 0), 90) / 90;
-        const radius = normalizedRadius * maxRadius;
-        const angleRad = deg2rad((90 - point.azimuthDeg + 360) % 360);
-        const x = center + radius * Math.cos(angleRad);
-        const y = center - radius * Math.sin(angleRad);
-        return { x, y };
-      }
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const center = size / 2;
+  const maxRadius = center - 16;
+  const toPoint = (point) => {
+    const normalizedRadius = 1 - Math.min(Math.max(point.elevationDeg, 0), 90) / 90;
+    const radius = normalizedRadius * maxRadius;
+    const angleRad = deg2rad((90 - point.azimuthDeg + 360) % 360);
+    const x = center + radius * Math.cos(angleRad);
+    const y = center - radius * Math.sin(angleRad);
+    return { x, y };
+  };
 
-      ctx.clearRect(0, 0, size, size);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      [0.33, 0.66, 1].forEach((fraction) => {
-        ctx.beginPath();
-        ctx.arc(center, center, maxRadius * fraction, 0, Math.PI * 2);
-        ctx.stroke();
-      });
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  [0.33, 0.66, 1].forEach((fraction) => {
+    ctx.beginPath();
+    ctx.arc(center, center, maxRadius * fraction, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.beginPath();
+  ctx.moveTo(center, center - maxRadius);
+  ctx.lineTo(center, center + maxRadius);
+  ctx.moveTo(center - maxRadius, center);
+  ctx.lineTo(center + maxRadius, center);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.textAlign = 'center';
+  ctx.fillText('N', center, center - maxRadius - 6);
+  ctx.fillText('S', center, center + maxRadius + 14);
+  ctx.fillText('W', center - maxRadius - 10, center + 4);
+  ctx.fillText('E', center + maxRadius + 10, center + 4);
+  ['0°', '30°', '60°'].forEach((label, idx) => {
+    ctx.fillText(label, center, center - maxRadius * (1 - idx * 0.33) + 12);
+  });
+
+  ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+  pass.trackPoints.forEach((point) => {
+    const pos = toPoint(point);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  if (sunTrackPoints.length) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 99, 132, 0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 8]);
+    ctx.beginPath();
+    sunTrackPoints.forEach((sunPoint, idx) => {
+      const pos = toPoint(sunPoint);
+      if (idx === 0) ctx.moveTo(pos.x, pos.y);
+      else ctx.lineTo(pos.x, pos.y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255, 99, 132, 0.25)';
+    sunTrackPoints.forEach((sunPoint) => {
+      const pos = toPoint(sunPoint);
       ctx.beginPath();
-      ctx.moveTo(center, center - maxRadius);
-      ctx.lineTo(center, center + maxRadius);
-      ctx.moveTo(center - maxRadius, center);
-      ctx.lineTo(center + maxRadius, center);
-      ctx.stroke();
+      ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.textAlign = 'center';
-      ctx.fillText('N', center, center - maxRadius - 6);
-      ctx.fillText('S', center, center + maxRadius + 14);
-      ctx.fillText('W', center - maxRadius - 10, center + 4);
-      ctx.fillText('E', center + maxRadius + 10, center + 4);
-      ['0°', '30°', '60°'].forEach((label, idx) => {
-        ctx.fillText(label, center, center - maxRadius * (1 - idx * 0.33) + 12);
-      });
+  const hasOverlap = pass.trackPoints.some((point) =>
+    sunTrackPoints.some((sunPoint) => {
+      const azDiff = Math.abs(point.azimuthDeg - sunPoint.azimuthDeg);
+      const wrappedAzDiff = Math.min(azDiff, 360 - azDiff);
+      const elDiff = Math.abs(point.elevationDeg - sunPoint.elevationDeg);
+      return wrappedAzDiff <= 5 && elDiff <= 3;
+    }),
+  );
 
-      ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
-      trackPoints.forEach((point) => {
-        const pos = toPoint(point);
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      if (sunTrackPoints.length) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 99, 132, 0.65)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 8]);
-        ctx.beginPath();
-        sunTrackPoints.forEach((sunPoint, idx) => {
-          const pos = toPoint(sunPoint);
-          if (idx === 0) ctx.moveTo(pos.x, pos.y);
-          else ctx.lineTo(pos.x, pos.y);
-        });
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255, 99, 132, 0.25)';
-        sunTrackPoints.forEach((sunPoint) => {
-          const pos = toPoint(sunPoint);
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.restore();
-      }
-
-      const legendContainer = document.createElement('div');
-      legendContainer.style.marginTop = '0.75rem';
-      legendContainer.style.display = 'flex';
-      legendContainer.style.gap = '1rem';
-      legendContainer.style.fontSize = '0.85rem';
-      legendContainer.style.color = 'rgba(255, 255, 255, 0.75)';
-
-      const satLegend = document.createElement('div');
-      satLegend.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(200,200,200,0.9);"></span>衛星軌跡</span>';
-
-      const sunLegend = document.createElement('div');
-      sunLegend.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(255,99,132,0.8);"></span>太陽位置</span>';
-
-      legendContainer.appendChild(satLegend);
-      legendContainer.appendChild(sunLegend);
-      canvas.parentNode.appendChild(legendContainer);
-
-      const hasOverlap = trackPoints.some((point) =>
-        sunTrackPoints.some((sunPoint) => {
-          const azDiff = Math.abs(point.azimuthDeg - sunPoint.azimuthDeg);
-          const wrappedAzDiff = Math.min(azDiff, 360 - azDiff);
-          const elDiff = Math.abs(point.elevationDeg - sunPoint.elevationDeg);
-          return wrappedAzDiff <= 5 && elDiff <= 3;
-        }),
-      );
-
-      if (hasOverlap) {
-        const notice = document.createElement('div');
-        notice.textContent = '衛星位置と太陽位置が重なっています。観測時には注意してください。';
-        notice.style.marginTop = '0.4rem';
-        notice.style.fontSize = '0.8rem';
-        notice.style.color = '#ff7b9e';
-        notice.style.fontWeight = '600';
-        canvas.parentNode.appendChild(notice);
-      }
-
-    </script>
-  </body>
-</html>`);
-  doc.close();
+  if (hasOverlap) {
+    const notice = document.createElement('div');
+    notice.textContent = '衛星位置と太陽位置が重なっています。観測時には注意してください。';
+    notice.style.marginTop = '0.4rem';
+    notice.style.fontSize = '0.8rem';
+    notice.style.color = '#ff7b9e';
+    notice.style.fontWeight = '600';
+    container.appendChild(notice);
+  }
 }
 
 function computeSatelliteData() {
@@ -1374,20 +1211,6 @@ function openSatelliteDataWindow() {
     return;
   }
 
-  let doc = getWindowDocument(satelliteDataWindow);
-  if (!doc) {
-    satelliteDataWindow = window.open('', 'satelliteData', 'width=420,height=660');
-    doc = getWindowDocument(satelliteDataWindow);
-    if (!doc) {
-      alert('ポップアップがブロックされています。許可してください。');
-      return;
-    }
-    registerPopupWindow(satelliteDataWindow);
-  } else {
-    registerPopupWindow(satelliteDataWindow);
-    satelliteDataWindow.focus();
-  }
-
   const formatNumber = (value, decimals = 2, suffix = '') =>
     typeof value === 'number' && Number.isFinite(value)
       ? `${value.toFixed(decimals)}${suffix}`
@@ -1417,42 +1240,13 @@ function openSatelliteDataWindow() {
 
   const tableRows = rows
     .map(
-      ([label, value]) => `
-        <tr>
-          <th>${label}</th>
-          <td>${value}</td>
-        </tr>`,
+      ([label, value]) => `<tr><th>${label}</th><td>${value}</td></tr>`,
     )
     .join('');
 
-  doc.open();
-  doc.write(`<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>衛星データ</title>
-    <style>
-      body { font-family: 'Segoe UI', system-ui; margin: 0; background: #05070c; color: #f5f5f5; }
-      header { padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-      main { padding: 1.5rem; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 0.65rem 0.35rem; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
-      th { width: 40%; font-weight: 600; color: rgba(255,255,255,0.8); }
-      td { color: rgba(255,255,255,0.95); }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h2>${escapeHtml(data.name || '衛星データ')}</h2>
-    </header>
-    <main>
-      <table>
-        ${tableRows}
-      </table>
-    </main>
-  </body>
-</html>`);
-  doc.close();
+  const container = document.createElement('div');
+  container.innerHTML = `<table class="modal-table">${tableRows}</table>`;
+  openModal({ title: escapeHtml(data.name || '衛星データ'), content: container });
 }
 
 function tick() {
